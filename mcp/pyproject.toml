@@ -1,0 +1,30 @@
+[project]
+name = "dot-fastmcp-calculator"
+version = "0.1.0"
+description = "Direct Django OAuth Toolkit authentication for a ChatGPT calculator MCP"
+requires-python = ">=3.12,<3.15"
+dependencies = ["fastmcp==3.4.8", "httpx>=0.28,<1", "pydantic-settings>=2.10,<3"]
+
+[project.scripts]
+calculator-mcp = "calculator_dot.server:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/calculator_dot"]
+
+[dependency-groups]
+dev = ["pytest>=9,<10", "pytest-asyncio>=1,<2", "ruff>=0.12,<1"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

@@ -1,0 +1,27 @@
+services:
+  django:
+    build: ./django
+    environment:
+      POC_DJANGO_SECRET_KEY: ${POC_DJANGO_SECRET_KEY:?Supply a new PoC Django secret}
+      POC_ALLOWED_HOSTS: oauth-poc.example.com,localhost,127.0.0.1
+      DJANGO_ISSUER_URL: https://oauth-poc.example.com/
+      POC_DB_PATH: /data/poc.sqlite3
+      MCP_PUBLIC_URL: https://calculator-cimd.example.com/mcp
+      INTROSPECTION_CLIENT_ID: calculator-mcp-service
+    command: [sh, -ec, "/app/.venv/bin/python manage.py migrate --noinput && exec /app/.venv/bin/gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 1"]
+    volumes:
+      - oauth-poc-data:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+  mcp:
+    build: ./mcp
+    environment:
+      MCP_PUBLIC_URL: https://calculator-cimd.example.com/mcp
+      DJANGO_ISSUER_URL: https://oauth-poc.example.com/
+      DJANGO_INTROSPECTION_URL: https://oauth-poc.example.com/mcp-oauth/introspect/
+      INTROSPECTION_CLIENT_ID: calculator-mcp-service
+      INTROSPECTION_CLIENT_SECRET: ${INTROSPECTION_CLIENT_SECRET:?Supply the provisioned service secret}
+    ports:
+      - "127.0.0.1:8001:8001"
+volumes:
+  oauth-poc-data:

@@ -1,0 +1,5 @@
+{% extends "oauth2_provider/authorize.html" %}
+{% block content %}
+{% if application.registration_source == "cimd" %}<p><code>{{ application.client_id }}</code></p>{% endif %}
+{{ block.super }}
+{% endblock %}

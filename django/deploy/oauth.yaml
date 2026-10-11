@@ -1,0 +1,85 @@
+# Single-replica PoC with a separate SQLite volume. Replace image/storage/TLS values.
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: oauth-poc-data
+spec:
+  accessModes: [ReadWriteOnce]
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: oauth-poc
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels: {app: oauth-poc}
+  template:
+    metadata:
+      labels: {app: oauth-poc}
+    spec:
+      securityContext:
+        runAsUser: 10001
+        runAsGroup: 10001
+        fsGroup: 10001
+        runAsNonRoot: true
+      containers:
+        - name: django
+          image: your-registry.example.com/oauth-poc:0.1.0
+          command: [sh, -ec]
+          args: ["/app/.venv/bin/python manage.py migrate --noinput && exec /app/.venv/bin/gunicorn config.wsgi:application --bind 0.0.0.0:8000 --workers 1"]
+          ports:
+            - containerPort: 8000
+          env:
+            - {name: DJANGO_ISSUER_URL, value: "https://oauth-poc.example.com/"}
+            - {name: POC_ALLOWED_HOSTS, value: "oauth-poc.example.com"}
+            - {name: POC_DB_PATH, value: "/data/poc.sqlite3"}
+            - {name: MCP_PUBLIC_URL, value: "https://calculator-cimd.example.com/mcp"}
+            - {name: INTROSPECTION_CLIENT_ID, value: "calculator-mcp-service"}
+            - name: POC_DJANGO_SECRET_KEY
+              valueFrom:
+                secretKeyRef: {name: oauth-poc, key: django-secret-key}
+          volumeMounts:
+            - {name: data, mountPath: /data}
+          readinessProbe:
+            tcpSocket: {port: 8000}
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities: {drop: [ALL]}
+      volumes:
+        - name: data
+          persistentVolumeClaim: {claimName: oauth-poc-data}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: oauth-poc
+spec:
+  selector: {app: oauth-poc}
+  ports:
+    - {port: 80, targetPort: 8000}
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: oauth-poc
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [oauth-poc.example.com]
+      secretName: oauth-poc-tls
+  rules:
+    - host: oauth-poc.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: oauth-poc
+                port: {number: 80}

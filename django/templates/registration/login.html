@@ -1,0 +1,7 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>OAuth PoC login</title></head>
+<body><main><h1>OAuth PoC login</h1>
+<form method="post">{% csrf_token %}{{ form.as_p }}
+<input type="hidden" name="next" value="{{ next }}">
+<button type="submit">Log in</button></form>
+</main></body></html>

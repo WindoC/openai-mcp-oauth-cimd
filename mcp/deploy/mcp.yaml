@@ -1,0 +1,89 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: calculator-cimd
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: calculator-cimd
+  template:
+    metadata:
+      labels:
+        app: calculator-cimd
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 10001
+        runAsGroup: 10001
+      containers:
+        - name: mcp
+          image: your-registry.example.com/calculator-cimd:0.1.0
+          ports:
+            - containerPort: 8001
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: [ALL]
+          env:
+            - name: MCP_PUBLIC_URL
+              value: https://calculator-cimd.example.com/mcp
+            - name: DJANGO_ISSUER_URL
+              value: https://oauth-poc.example.com/
+            - name: DJANGO_INTROSPECTION_URL
+              value: https://oauth-poc.example.com/mcp-oauth/introspect/
+            - name: INTROSPECTION_CLIENT_ID
+              value: calculator-mcp-service
+            - name: INTROSPECTION_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: calculator-cimd
+                  key: introspection-client-secret
+          readinessProbe:
+            httpGet:
+              path: /healthz
+              port: 8001
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8001
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: calculator-cimd
+spec:
+  selector:
+    app: calculator-cimd
+  ports:
+    - port: 80
+      targetPort: 8001
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: calculator-cimd
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts: [calculator-cimd.example.com]
+      secretName: calculator-cimd-tls
+  rules:
+    - host: calculator-cimd.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: calculator-cimd
+                port:
+                  number: 80
